@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
-String bullet = "\u2022";
 
 void main() {
   runApp(const MyApp());
