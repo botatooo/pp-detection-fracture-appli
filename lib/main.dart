@@ -1,8 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
+String bullet = "\u2022";
 
 void main() {
   runApp(const MyApp());
@@ -14,12 +17,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FraDet',
+      title: "Detection de fractures",
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightGreen),
         useMaterial3: true,
       ),
-      home: const MainPage(title: 'FraDet'),
+      home: const MainPage(title: "Detection de fractures"),
       navigatorKey: navigatorKey,
     );
   }
@@ -35,6 +38,7 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  int currentPage = 0;
   Uint8List imageBytes = Uint8List(0);
   Uint8List processedImageBytes = Uint8List(0);
 
@@ -96,163 +100,236 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme
-            .of(context)
-            .colorScheme
-            .inversePrimary,
+        // backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.info),
-            tooltip: "À propos",
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                showDragHandle: true,
-                builder: (BuildContext context) {
-                  return Wrap(
+        // actions: <Widget>[
+        //   IconButton(
+        //     icon: const Icon(Icons.info),
+        //     tooltip: "À propos",
+        //     onPressed: () {
+        //       showModalBottomSheet(
+        //         context: context,
+        //         showDragHandle: true,
+        //         builder: (BuildContext context) {
+        //           return ;
+        //         },
+        //       );
+        //     },
+        //   ),
+        // ],
+      ),
+      body: IndexedStack(
+        index: currentPage,
+        children: [
+          // accueil
+          Center(
+            child: Flex(
+              direction: Axis.vertical,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                Expanded(
+                  flex: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: GestureDetector(
+                      onTap: () async {
+                        final ImagePicker picker = ImagePicker();
+
+                        final XFile? image =
+                            await picker.pickImage(source: ImageSource.gallery);
+                        if (image == null) {
+                          return;
+                        }
+
+                        Uint8List bytesTemp = await image.readAsBytes();
+
+                        setState(() {
+                          imageBytes = bytesTemp;
+                          processedImageBytes = Uint8List(0);
+                        });
+                      },
+                      child: processedImageBytes.isNotEmpty
+                          ? Image.memory(
+                              processedImageBytes,
+                              fit: BoxFit.contain,
+                            )
+                          : imageBytes.isNotEmpty
+                              ? Image.memory(
+                                  imageBytes,
+                                  fit: BoxFit.contain,
+                                )
+                              : Image.asset(
+                                  "assets/placeholder.png",
+                                  fit: BoxFit.contain,
+                                ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(left: 16.0),
-                        child: Text(
-                          "À propos",
-                          style: Theme
-                              .of(context)
-                              .textTheme
-                              .headlineMedium,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: RichText(
-                          text: TextSpan(
-                            style: Theme
-                                .of(context)
-                                .textTheme
-                                .bodyLarge,
-                            children: const <TextSpan>[
-                              TextSpan(
-                                text: "Conception et programmation par ",
-                              ),
-                              TextSpan(
-                                text: "Adnan Taha ",
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(
-                                text: "sous la supervision de François Goulet.",
-                              ),
-                            ],
-                          ),
-                          maxLines: null,
-                          softWrap: true,
+                        padding: const EdgeInsets.only(top: 32.0, bottom: 32.0),
+                        child: FilledButton(
+                          onPressed: () {
+                            if (processedImageBytes.isNotEmpty) {
+                              bool wantsToProceed = false;
+                              showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return Dialog(
+                                      child: Column(
+                                        children: [
+                                          const Text(
+                                            "Êtes-vous certain de vouloir resoumettre l'image?",
+                                          ),
+                                          Row(
+                                            children: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  wantsToProceed = true;
+                                                  Navigator.pop(context);
+                                                },
+                                                child: const Text("Oui"),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  wantsToProceed = false;
+                                                  Navigator.pop(context);
+                                                },
+                                                child:
+                                                    const Text("Non, annuler"),
+                                              ),
+                                            ],
+                                          )
+                                        ],
+                                      ),
+                                    );
+                                  });
+
+                              if (!wantsToProceed) {
+                                return;
+                              }
+                            }
+
+                            if (imageBytes.isNotEmpty) {
+                              Uint8List? processedStuff = Uint8List(0);
+
+                              // todo: do the processing
+
+                              setState(() {
+                                processedImageBytes = processedStuff;
+                              });
+                            }
+                          },
+                          child: const Text("Traiter"),
                         ),
                       ),
                     ],
-                  );
-                },
-              );
-            },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // à propos
+          Wrap(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 16.0, top: 16.0),
+                child: Text(
+                  "À propos",
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: RichText(
+                  text: TextSpan(
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    children: const <TextSpan>[
+                      TextSpan(
+                        text: "Conception et programmation par ",
+                      ),
+                      TextSpan(
+                        text: "Adnan Taha ",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: "sous la supervision de François Goulet.",
+                      ),
+                    ],
+                  ),
+                  maxLines: null,
+                  softWrap: true,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 16.0),
+                child: RichText(
+                  text: TextSpan(
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    children: [
+                      TextSpan(
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.blue,
+                        ),
+                        text: "Code source pour l'application",
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () => launchUrl(
+                                Uri.parse(
+                                  "https://github.com/botatooo/pp-detection-fracture",
+                                ),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                      ),
+                      const TextSpan(text: "\n"),
+                      TextSpan(
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.blue,
+                        ),
+                        text: "Code source pour le modèle IA",
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () => launchUrl(
+                                Uri.parse(
+                                  "https://github.com/botatooo/xray-fracture-detection",
+                                ),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            GestureDetector(
-              onTap: () async {
-                final ImagePicker picker = ImagePicker();
-
-                final XFile? image =
-                await picker.pickImage(source: ImageSource.gallery);
-                if (image == null) {
-                  return;
-                }
-
-                setState(() async {
-                  imageBytes = await image.readAsBytes();
-                });
-              },
-              child: processedImageBytes.isNotEmpty
-                  ? Image.memory(
-                processedImageBytes,
-                fit: BoxFit.cover,
-                width: 110.0,
-                height: 110.0,
-              )
-                  : imageBytes.isNotEmpty
-                  ? Image.memory(
-                imageBytes,
-                fit: BoxFit.cover,
-                width: 110.0,
-                height: 110.0,
-              )
-                  : Image.asset(
-                'placeholder.png',
-                fit: BoxFit.cover,
-                width: 220.0,
-                height: 220.0,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
-              child: TextButton(
-                onPressed: () {
-                  if (processedImageBytes.isNotEmpty) {
-                    bool wantsToProceed = false;
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return Dialog(
-                          child: Column(
-                            children: [
-                              const Text(
-                                "Êtes-vous certain de vouloir resoumettre l'image?",
-                              ),
-                              Row(
-                                children: [
-                                  TextButton(
-                                    onPressed: () {
-                                      wantsToProceed = true;
-                                      Navigator.pop(context);
-                                    },
-                                    child: const Text("Oui"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      wantsToProceed = false;
-                                      Navigator.pop(context);
-                                    },
-                                    child: const Text("Non, annuler"),
-                                  ),
-                                ],
-                              )
-                            ],
-                          ),
-                        );
-                      }
-                    );
-
-                    if (!wantsToProceed) {
-                      return;
-                    }
-                  }
-
-                  if (imageBytes.isNotEmpty) {
-                    Uint8List? processedStuff;
-
-                    // todo: do the processing
-
-                    setState(() {
-                      processedImageBytes = processedStuff;
-                    });
-                  }
-                },
-                child: const Text("Traiter"),
-              ),
-            ),
-          ],
-        ),
+      bottomNavigationBar: NavigationBar(
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        destinations: const <NavigationDestination>[
+          NavigationDestination(
+            // icon: Icon(Icons.camera_alt_outlined),
+            icon: Icon(Icons.camera_enhance_rounded),
+            label: "Accueil",
+          ),
+          NavigationDestination(
+            // icon: Icon(Icons.info_outline_rounded),
+            icon: Icon(Icons.info_rounded),
+            label: "À propos",
+          ),
+        ],
+        selectedIndex: currentPage,
+        onDestinationSelected: (newPage) {
+          setState(() {
+            currentPage = newPage;
+          });
+        },
       ),
     );
   }
