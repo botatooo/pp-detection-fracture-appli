@@ -16,12 +16,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "Detection de fractures",
+      title: "Détection de fractures",
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightGreen),
         useMaterial3: true,
       ),
-      home: const MainPage(title: "Detection de fractures"),
+      home: const MainPage(title: "Détection de fractures"),
       navigatorKey: navigatorKey,
     );
   }
@@ -256,7 +256,7 @@ class _MainPageState extends State<MainPage> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       TextSpan(
-                        text: "sous la supervision de François Goulet.",
+                        text: "sous la supervision de François Goulet de l'École internationale de Montréal.",
                       ),
                     ],
                   ),
