@@ -127,7 +127,7 @@ class _MainPageState extends State<MainPage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 Expanded(
-                  flex: 0,
+                  flex: 7,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: GestureDetector(
@@ -165,7 +165,7 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ),
                 Expanded(
-                  flex: 0,
+                  flex: 3,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -256,7 +256,8 @@ class _MainPageState extends State<MainPage> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       TextSpan(
-                        text: "sous la supervision de François Goulet de l'École internationale de Montréal.",
+                        text:
+                            "sous la supervision de François Goulet de l'École internationale de Montréal.",
                       ),
                     ],
                   ),
