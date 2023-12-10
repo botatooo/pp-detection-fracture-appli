@@ -281,7 +281,7 @@ class _MainPageState extends State<MainPage> {
                         recognizer: TapGestureRecognizer()
                           ..onTap = () => launchUrl(
                                 Uri.parse(
-                                  "https://github.com/botatooo/pp-detection-fracture",
+                                  "https://github.com/botatooo/pp-detection-fracture-appli",
                                 ),
                                 mode: LaunchMode.externalApplication,
                               ),
@@ -297,7 +297,7 @@ class _MainPageState extends State<MainPage> {
                         recognizer: TapGestureRecognizer()
                           ..onTap = () => launchUrl(
                                 Uri.parse(
-                                  "https://github.com/botatooo/xray-fracture-detection",
+                                  "https://github.com/botatooo/pp-detection-fracture-recherche",
                                 ),
                                 mode: LaunchMode.externalApplication,
                               ),
