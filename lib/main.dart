@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_vision/flutter_vision.dart';
+import 'package:pp_detection_fracture/widgets/bb_image.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -38,299 +41,292 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int currentPage = 0;
-  Uint8List imageBytes = Uint8List(0);
-  Uint8List processedImageBytes = Uint8List(0);
 
-  // Future<void> getLostData() async {
-  //   final ImagePicker picker = ImagePicker();
-  //   final LostDataResponse response = await picker.retrieveLostData();
-  //   if (response.isEmpty) {
-  //     return;
-  //   }
-  //   final List<XFile>? files = response.files;
-  //   if (files != null) {
-  //     _handleLostFiles(files);
-  //   } else {
-  //     _handleError(response.exception);
-  //   }
-  // }
-  //
-  // void _handleLostFiles(List<XFile> files) {
-  //   XFile file = files[0];
-  //
-  //   if (file == null) {
-  //     return;
-  //   }
-  //
-  //   if (!file.mimeType!.startsWith("image/")) {
-  //     PlatformException error = PlatformException(
-  //       code: "ASD_WRONG_MEDIA_TYPE_RECOVERED",
-  //       message: "how the hell did you even get here",
-  //     );
-  //     _handleError(error);
-  //   }
-  //
-  //   setState(() async {
-  //     hasImage = true;
-  //     imageBytes = await file.readAsBytes();
-  //   });
-  // }
-  //
-  // void _handleError(PlatformException? error) {
-  //   if (error == null) {
-  //     return;
-  //   }
-  //
-  //   showDialog(
-  //     context: navigatorKey.currentContext!,
-  //     builder: (BuildContext context) {
-  //       return Wrap(
-  //         children: [
-  //           Text("Error occurred",
-  //               style: Theme.of(context).textTheme.headlineLarge),
-  //           Text("${error.code}: ${error.message}"),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
+  late FlutterVision vision;
+  bool isLoaded = false;
+
+  late List<Map<String, dynamic>> detectionResults;
+  XFile? imageFile;
+  int imageHeight = 1;
+  int imageWidth = 1;
+
+  @override
+  void initState() {
+    vision = FlutterVision();
+    loadYoloModel().then((value) {
+      setState(() {
+        detectionResults = [];
+        isLoaded = true;
+      });
+    });
+    super.initState();
+  }
+
+  Future<void> pickImage() async {
+    final ImagePicker picker = ImagePicker();
+
+    final XFile? pickedImage = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedImage == null) {
+      return;
+    }
+
+    setState(() {
+      imageFile = pickedImage;
+      detectionResults = [];
+    });
+  }
+
+  Future<void> loadYoloModel() async {
+    await vision.loadYoloModel(
+        labels: 'assets/labels.txt',
+        modelPath: 'assets/yolov8n_fracatlas_float32.tflite',
+        modelVersion: "yolov8",
+        quantization: false,
+        numThreads: 2,
+        useGpu: true
+    );
+  }
+
+  Future<void> runInference() async {
+    detectionResults.clear();
+
+    Uint8List imageBytes = await imageFile!.readAsBytes();
+    final image = await decodeImageFromList(imageBytes);
+
+    imageHeight = image.height;
+    imageWidth = image.width;
+
+    // print("height ${image.height}");
+    // print("width ${image.width}");
+
+    final result = await vision.yoloOnImage(
+        bytesList: imageBytes,
+        imageHeight: image.height,
+        imageWidth: image.width,
+        iouThreshold: 0.8,
+        confThreshold: 0.4,
+        classThreshold: 0.1 // 0.3
+    );
+
+    // highest score first
+    result.sort((a, b) => a["box"][4].compareTo(b["box"][4]));
+
+    // print(result);
+    if (result.isNotEmpty) {
+      setState(() {
+        detectionResults = result;
+      });
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        // backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-        // actions: <Widget>[
-        //   IconButton(
-        //     icon: const Icon(Icons.info),
-        //     tooltip: "À propos",
-        //     onPressed: () {
-        //       showModalBottomSheet(
-        //         context: context,
-        //         showDragHandle: true,
-        //         builder: (BuildContext context) {
-        //           return ;
-        //         },
-        //       );
-        //     },
-        //   ),
-        // ],
-      ),
-      body: IndexedStack(
-        index: currentPage,
-        children: [
-          // accueil
-          Center(
-            child: Flex(
-              direction: Axis.vertical,
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                Expanded(
-                  flex: 7,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: GestureDetector(
-                      onTap: () async {
-                        final ImagePicker picker = ImagePicker();
+    if (!isLoaded) {
+      return const Scaffold(
+        body: Center(
+          child: Text("Loading model..."),
+        ),
+      );
+    }
 
-                        final XFile? image =
-                            await picker.pickImage(source: ImageSource.gallery);
-                        if (image == null) {
-                          return;
-                        }
-
-                        Uint8List bytesTemp = await image.readAsBytes();
-
-                        setState(() {
-                          imageBytes = bytesTemp;
-                          processedImageBytes = Uint8List(0);
-                        });
-                      },
-                      child: processedImageBytes.isNotEmpty
-                          ? Image.memory(
-                              processedImageBytes,
-                              fit: BoxFit.contain,
-                            )
-                          : imageBytes.isNotEmpty
-                              ? Image.memory(
-                                  imageBytes,
-                                  fit: BoxFit.contain,
-                                )
-                              : Image.asset(
-                                  "assets/placeholder.png",
-                                  fit: BoxFit.contain,
-                                ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 32.0, bottom: 32.0),
-                        child: FilledButton(
-                          onPressed: () {
-                            if (processedImageBytes.isNotEmpty) {
-                              bool wantsToProceed = false;
-                              showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return Dialog(
-                                      child: Column(
-                                        children: [
-                                          const Text(
-                                            "Êtes-vous certain de vouloir resoumettre l'image?",
-                                          ),
-                                          Row(
-                                            children: [
-                                              TextButton(
-                                                onPressed: () {
-                                                  wantsToProceed = true;
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text("Oui"),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  wantsToProceed = false;
-                                                  Navigator.pop(context);
-                                                },
-                                                child:
-                                                    const Text("Non, annuler"),
-                                              ),
-                                            ],
-                                          )
-                                        ],
-                                      ),
-                                    );
-                                  });
-
-                              if (!wantsToProceed) {
-                                return;
-                              }
-                            }
-
-                            if (imageBytes.isNotEmpty) {
-                              Uint8List? processedStuff = Uint8List(0);
-
-                              // todo: do the processing
-
-                              setState(() {
-                                processedImageBytes = processedStuff;
-                              });
-                            }
-                          },
-                          child: const Text("Traiter"),
+    return LayoutBuilder(builder: (context, constraints) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
+        body: IndexedStack(
+          index: currentPage,
+          children: [
+            // accueil
+            Center(
+              child: Flex(
+                direction: Axis.vertical,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  Expanded(
+                    flex: 7,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: GestureDetector(
+                        onTap: pickImage,
+                        child: BBImage(
+                          detectionResults: detectionResults,
+                          imageFile: imageFile,
+                          imageHeight: imageHeight,
+                          imageWidth: imageWidth,
                         ),
                       ),
-                    ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              top: 32.0, bottom: 32.0),
+                          child: FilledButton(
+                            onPressed: () {
+                              if (detectionResults.isNotEmpty) {
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: const Text("Êtes-vous certain de vouloir resoumettre l'image?"),
+                                        actions: [
+                                          TextButton(
+                                            style: TextButton.styleFrom(
+                                              textStyle: Theme.of(context).textTheme.labelLarge,
+                                            ),
+                                            onPressed: () {
+                                              if (imageFile != null) {
+                                                runInference();
+                                              }
+                                              Navigator.pop(context);
+                                            },
+                                            child: const Text("Oui"),
+                                          ),
+                                          TextButton(
+                                            style: TextButton.styleFrom(
+                                              textStyle: Theme.of(context).textTheme.labelLarge,
+                                            ),
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                            },
+                                            child: const Text("Non, annuler"),
+                                          ),
+                                        ],
+                                      );
+                                    });
+                                return;
+                              }
+
+                              if (imageFile != null) {
+                                runInference();
+                              }
+                            },
+                            child: const Text("Traiter"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // à propos
+            Wrap(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 16.0, top: 16.0),
+                  child: Text(
+                    "À propos",
+                    style: Theme
+                        .of(context)
+                        .textTheme
+                        .headlineMedium,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: RichText(
+                    text: TextSpan(
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .bodyLarge,
+                      children: const <TextSpan>[
+                        TextSpan(
+                          text: "Conception et programmation par ",
+                        ),
+                        TextSpan(
+                          text: "Adnan Taha ",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text:
+                          "sous la supervision de François Goulet de l'École internationale de Montréal.",
+                        ),
+                      ],
+                    ),
+                    maxLines: null,
+                    softWrap: true,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
+                  child: RichText(
+                    text: TextSpan(
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .bodyLarge,
+                      children: [
+                        TextSpan(
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.blue,
+                          ),
+                          text: "Code source pour l'application",
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () =>
+                                launchUrl(
+                                  Uri.parse(
+                                    "https://github.com/botatooo/pp-detection-fracture-appli",
+                                  ),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                        ),
+                        const TextSpan(text: "\n"),
+                        TextSpan(
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.blue,
+                          ),
+                          text: "Code source pour le modèle IA",
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () =>
+                                launchUrl(
+                                  Uri.parse(
+                                    "https://github.com/botatooo/pp-detection-fracture-recherche",
+                                  ),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          // à propos
-          Wrap(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 16.0, top: 16.0),
-                child: Text(
-                  "À propos",
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: RichText(
-                  text: TextSpan(
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    children: const <TextSpan>[
-                      TextSpan(
-                        text: "Conception et programmation par ",
-                      ),
-                      TextSpan(
-                        text: "Adnan Taha ",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      TextSpan(
-                        text:
-                            "sous la supervision de François Goulet de l'École internationale de Montréal.",
-                      ),
-                    ],
-                  ),
-                  maxLines: null,
-                  softWrap: true,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 16.0),
-                child: RichText(
-                  text: TextSpan(
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    children: [
-                      TextSpan(
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
-                          decorationColor: Colors.blue,
-                        ),
-                        text: "Code source pour l'application",
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () => launchUrl(
-                                Uri.parse(
-                                  "https://github.com/botatooo/pp-detection-fracture-appli",
-                                ),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                      ),
-                      const TextSpan(text: "\n"),
-                      TextSpan(
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
-                          decorationColor: Colors.blue,
-                        ),
-                        text: "Code source pour le modèle IA",
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () => launchUrl(
-                                Uri.parse(
-                                  "https://github.com/botatooo/pp-detection-fracture-recherche",
-                                ),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            // icon: Icon(Icons.camera_alt_outlined),
-            icon: Icon(Icons.camera_enhance_rounded),
-            label: "Accueil",
-          ),
-          NavigationDestination(
-            // icon: Icon(Icons.info_outline_rounded),
-            icon: Icon(Icons.info_rounded),
-            label: "À propos",
-          ),
-        ],
-        selectedIndex: currentPage,
-        onDestinationSelected: (newPage) {
-          setState(() {
-            currentPage = newPage;
-          });
-        },
-      ),
-    );
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+          destinations: const <NavigationDestination>[
+            NavigationDestination(
+              // icon: Icon(Icons.camera_alt_outlined),
+              icon: Icon(Icons.camera_enhance_rounded),
+              label: "Accueil",
+            ),
+            NavigationDestination(
+              // icon: Icon(Icons.info_outline_rounded),
+              icon: Icon(Icons.info_rounded),
+              label: "À propos",
+            ),
+          ],
+          selectedIndex: currentPage,
+          onDestinationSelected: (newPage) {
+            setState(() {
+              currentPage = newPage;
+            });
+          },
+        ),
+      );
+    });
   }
 }
