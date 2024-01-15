@@ -24,6 +24,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightGreen),
         useMaterial3: true,
       ),
+      debugShowCheckedModeBanner: false,
       home: const MainPage(title: "Détection de fractures"),
       navigatorKey: navigatorKey,
     );
