@@ -47,6 +47,7 @@ class _MainPageState extends State<MainPage> {
   bool isLoaded = false;
 
   late List<Map<String, dynamic>> detectionResults;
+  bool ranDetection = false;
   XFile? imageFile;
   int imageHeight = 1;
   int imageWidth = 1;
@@ -74,6 +75,7 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       imageFile = pickedImage;
       detectionResults = [];
+      ranDetection = false;
     });
   }
 
@@ -113,11 +115,10 @@ class _MainPageState extends State<MainPage> {
     result.sort((a, b) => a["box"][4].compareTo(b["box"][4]));
 
     // print(result);
-    if (result.isNotEmpty) {
-      setState(() {
-        detectionResults = result;
-      });
-    }
+    setState(() {
+      detectionResults = result;
+      ranDetection = true;
+    });
   }
 
 
@@ -159,6 +160,15 @@ class _MainPageState extends State<MainPage> {
                         ),
                       ),
                     ),
+                  ),
+                  Expanded(
+                    child: ranDetection
+                        ? detectionResults.isEmpty
+                          ? const Text("Aucune fracture trouvée")
+                          : detectionResults.length == 1
+                            ? const Text("1 fracture trouvée")
+                            : Text("${detectionResults.length} fractures trouvées")
+                        : const Text("Les résultats seront affichés ici")
                   ),
                   Expanded(
                     flex: 3,
