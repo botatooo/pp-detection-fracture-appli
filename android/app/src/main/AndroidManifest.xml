@@ -11,7 +11,7 @@
         </intent>
     </queries>
     <application
-        android:label="pp_detection_fracture"
+        android:label="Dét. fractures"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
